@@ -43,6 +43,7 @@ import org.terasology.world.block.sounds.BlockSounds;
 import org.terasology.world.chunks.ChunkConstants;
 
 import java.math.RoundingMode;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -96,8 +97,8 @@ public final class Block {
     private boolean waving;
     private byte luminance;
     private Vector3f tint = new Vector3f(0, 0, 0);
-    private Map<BlockPart, BlockColorSource> colorSource = Maps.newEnumMap(BlockPart.class);
-    private Map<BlockPart, Vector4f> colorOffsets = Maps.newEnumMap(BlockPart.class);
+    private Map<String, BlockColorSource> colorSource = new HashMap<>();
+    private Map<String, Vector4f> colorOffsets = new HashMap<>();
 
     // Collision related
     private boolean penetrable;
@@ -133,10 +134,8 @@ public final class Block {
      * Init. a new block with default properties in place.
      */
     public Block() {
-        for (BlockPart part : BlockPart.values()) {
-            colorSource.put(part, DefaultColorSource.DEFAULT);
-            colorOffsets.put(part, new Vector4f(1.0f, 1.0f, 1.0f, 1.0f));
-        }
+        colorSource.put("default", DefaultColorSource.DEFAULT);
+        colorOffsets.put("default", new Vector4f(1.0f, 1.0f, 1.0f, 1.0f));
     }
 
     public short getId() {
@@ -540,36 +539,32 @@ public final class Block {
         return primaryAppearance;
     }
 
-    public void setPrimaryAppearance(BlockAppearance appearence) {
-        this.primaryAppearance = appearence;
+    public void setPrimaryAppearance(BlockAppearance appearance) {
+        this.primaryAppearance = appearance;
     }
 
-    public BlockColorSource getColorSource(BlockPart part) {
-        return colorSource.get(part);
+    public BlockColorSource getColorSource(String blockSection) {
+        return colorSource.computeIfAbsent(blockSection, (k) -> colorSource.get("default"));
     }
 
     public void setColorSource(BlockColorSource colorSource) {
-        for (BlockPart part : BlockPart.values()) {
-            this.colorSource.put(part, colorSource);
-        }
+        this.colorSource.put("default", colorSource);
     }
 
-    public void setColorSource(BlockPart part, BlockColorSource value) {
-        this.colorSource.put(part, value);
+    public void setColorSource(String blockSection, BlockColorSource value) {
+        this.colorSource.put(blockSection, value);
     }
 
-    public Vector4f getColorOffset(BlockPart part) {
-        return colorOffsets.get(part);
+    public Vector4f getColorOffset(String blockSection) {
+        return colorOffsets.computeIfAbsent(blockSection, (k) -> colorOffsets.get("default"));
     }
 
-    public void setColorOffset(BlockPart part, Vector4f color) {
-        colorOffsets.put(part, color);
+    public void setColorOffset(String blockSection, Vector4f color) {
+        colorOffsets.put(blockSection, color);
     }
 
     public void setColorOffsets(Vector4f color) {
-        for (BlockPart part : BlockPart.values()) {
-            colorOffsets.put(part, color);
-        }
+        colorOffsets.put("default", color);
     }
 
     /**
