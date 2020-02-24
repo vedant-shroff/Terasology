@@ -29,6 +29,7 @@ import org.terasology.world.WorldProvider;
 import org.terasology.world.block.Block;
 import org.terasology.world.block.BlockAppearance;
 import org.terasology.world.block.BlockPart;
+import org.terasology.world.block.DefaultColorSource;
 import org.terasology.world.block.shapes.BlockMeshPart;
 import org.terasology.world.chunks.ChunkProvider;
 import org.terasology.world.generation.Region;
@@ -91,10 +92,12 @@ public class BlockMeshGeneratorSingleShape implements BlockMeshGenerator {
 
                 if (!renderableParts.isEmpty()) {
                     for (BlockMeshPart part : renderableParts) {
-                        Vector4f colorOffset = selfBlock.getColorOffset("default");
-                        Vector4f colorSource = selfBlock.getColorSource("default").calcColor(worldData, x, y, z);
-                        Vector4f colorResult = new Vector4f(colorSource.x * colorOffset.x, colorSource.y * colorOffset.y, colorSource.z * colorOffset.z, colorSource.w * colorOffset.w);
-                        part.appendTo(chunkMesh, x, y, z, renderType, colorResult, vertexFlag);
+                        if (part != null) {
+                            Vector4f colorOffset = selfBlock.getColorOffset("default");
+                            Vector4f colorSource = selfBlock.getColorSource("default").calcColor(worldData, x, y, z);
+                            Vector4f colorResult = new Vector4f(colorSource.x * colorOffset.x, colorSource.y * colorOffset.y, colorSource.z * colorOffset.z, colorSource.w * colorOffset.w);
+                            part.appendTo(chunkMesh, x, y, z, renderType, colorResult, vertexFlag);
+                        }
                     }
                 }
 
