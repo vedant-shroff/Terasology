@@ -34,6 +34,8 @@ import org.terasology.world.chunks.ChunkProvider;
 import org.terasology.world.generation.Region;
 import org.terasology.world.generator.internal.WorldGeneratorManager;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class BlockMeshGeneratorSingleShape implements BlockMeshGenerator {
@@ -60,12 +62,13 @@ public class BlockMeshGeneratorSingleShape implements BlockMeshGenerator {
         final ChunkMesh.RenderType renderType = getRenderType(selfBlock);
         final BlockAppearance blockAppearance = selfBlock.getPrimaryAppearance();
         final ChunkVertexFlag vertexFlag = getChunkVertexFlag(view, x, y, z, selfBlock);
-        boolean isRendered = false;
+        final List<String> sectionsToRender = new ArrayList<>();
 
+        //Collect all sections that should be visible
         for (final Side side : Side.getAllSides()) {
             if (isSideVisibleForBlockTypes(adjacentBlocks.get(side), selfBlock, side)) {
-                isRendered = true;
-                BlockMeshPart blockMeshPart = blockAppearance.getPart(BlockPart.fromSide(side));
+                List<String> blockMeshParts = blockAppearance.getParts(side);
+                List<BlockMeshPart> renderableParts = new ArrayList<>();
 
                 // If the selfBlock isn't lowered, some more faces may have to be drawn
                 if (selfBlock.isLiquid()) {
@@ -77,34 +80,46 @@ public class BlockMeshGeneratorSingleShape implements BlockMeshGenerator {
                         final Block adjacent = adjacentBlocks.get(side);
 
                         if (adjacent.isLiquid() && !adjacentAbove.isLiquid()) {
-                            blockMeshPart = selfBlock.getTopLiquidMesh(side);
+                            renderableParts.add(selfBlock.getTopLiquidMesh(side));
                         }
                     } else {
-                        if (blockMeshPart != null) {
-                            blockMeshPart = selfBlock.getLowLiquidMesh(side);
+                        if (blockMeshParts != null && !blockMeshParts.isEmpty()) {
+                            renderableParts.add(selfBlock.getLowLiquidMesh(side));
                         }
                     }
                 }
 
-                if (blockMeshPart != null) {
-                    // TODO: Needs review since the new per-vertex flags introduce a lot of special scenarios - probably a per-side setting?
-                    ChunkVertexFlag sideVertexFlag = vertexFlag;
-                    if (selfBlock.isGrass() && side != Side.TOP && side != Side.BOTTOM) {
-                        sideVertexFlag = ChunkVertexFlag.COLOR_MASK;
+                if (!renderableParts.isEmpty()) {
+                    for (BlockMeshPart part : renderableParts) {
+                        Vector4f colorOffset = selfBlock.getColorOffset("default");
+                        Vector4f colorSource = selfBlock.getColorSource("default").calcColor(worldData, x, y, z);
+                        Vector4f colorResult = new Vector4f(colorSource.x * colorOffset.x, colorSource.y * colorOffset.y, colorSource.z * colorOffset.z, colorSource.w * colorOffset.w);
+                        part.appendTo(chunkMesh, x, y, z, renderType, colorResult, vertexFlag);
                     }
-                    Vector4f colorOffset = selfBlock.getColorOffset(BlockPart.fromSide(side));
-                    Vector4f colorSource = selfBlock.getColorSource(BlockPart.fromSide(side)).calcColor(worldData, x, y, z);
-                    Vector4f colorResult = new Vector4f(colorSource.x * colorOffset.x, colorSource.y * colorOffset.y, colorSource.z * colorOffset.z, colorSource.w * colorOffset.w);
-                    blockMeshPart.appendTo(chunkMesh, x, y, z, renderType, colorResult, sideVertexFlag);
+                }
+
+                //Add the visible pieces to the list
+                if (blockMeshParts != null && !blockMeshParts.isEmpty()) {
+                    for (String name : blockMeshParts) {
+                        if (!sectionsToRender.contains(name)) {
+                            sectionsToRender.add(name);
+                        }
+                    }
                 }
             }
         }
 
-        if (isRendered && blockAppearance.getPart(BlockPart.CENTER) != null) {
-            Vector4f colorOffset = selfBlock.getColorOffset(BlockPart.CENTER);
-            Vector4f colorSource = selfBlock.getColorSource(BlockPart.CENTER).calcColor(worldData, x, y, z);
+        //Iterate through the list of visible sections we gathered per-side
+        for (String name : sectionsToRender) {
+            // TODO: Needs review since the new per-vertex flags introduce a lot of special scenarios - probably a per-side setting?
+            ChunkVertexFlag sideVertexFlag = vertexFlag;
+            if (selfBlock.isGrass() && !name.equals("top") && !name.equals("bottom")) {
+                sideVertexFlag = ChunkVertexFlag.COLOR_MASK;
+            }
+            Vector4f colorOffset = selfBlock.getColorOffset(name);
+            Vector4f colorSource = selfBlock.getColorSource(name).calcColor(worldData, x, y, z);
             Vector4f colorResult = new Vector4f(colorSource.x * colorOffset.x, colorSource.y * colorOffset.y, colorSource.z * colorOffset.z, colorSource.w * colorOffset.w);
-            blockAppearance.getPart(BlockPart.CENTER).appendTo(chunkMesh, x, y, z, renderType, colorResult, vertexFlag);
+            blockAppearance.getPart(name).appendTo(chunkMesh, x, y, z, renderType, colorResult, sideVertexFlag);
         }
     }
 
@@ -174,13 +189,16 @@ public class BlockMeshGeneratorSingleShape implements BlockMeshGenerator {
 
     private void generateMesh() {
         Tessellator tessellator = new Tessellator();
-        for (BlockPart dir : BlockPart.values()) {
-            BlockMeshPart part = block.getPrimaryAppearance().getPart(dir);
-            if (part != null) {
-                if (block.isDoubleSided()) {
-                    tessellator.addMeshPartDoubleSided(part);
-                } else {
-                    tessellator.addMeshPart(part);
+        for (Side side : Side.getAllSides()) {
+            List<String> parts = block.getPrimaryAppearance().getParts(side);
+            for (String name : parts) {
+                BlockMeshPart part = block.getPrimaryAppearance().getPart(name);
+                if (part != null) {
+                    if (block.isDoubleSided()) {
+                        tessellator.addMeshPartDoubleSided(part);
+                    } else {
+                        tessellator.addMeshPart(part);
+                    }
                 }
             }
         }
